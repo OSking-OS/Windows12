@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroWaterOS — AquaSpace Corporation</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   GLOBAL
+══════════════════════════════════════════ */
+:root {
+  --accent: #00c8ff;
+  --accent2: #0070ff;
+  --text: #e8f4ff;
+  --text-dim: rgba(200,230,255,0.55);
+  --glass-border: rgba(0,200,255,0.18);
+  --taskbar-h: 52px;
+  --win-radius: 16px;
+  --font: 'Figtree', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: var(--font);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+  user-select: none;
+}
+
+/* ══════════════════════════════════════════
+   SETUP INSTALLER
+══════════════════════════════════════════ */
+#setupApp {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(0,100,220,0.55), transparent),
+    radial-gradient(ellipse 60% 80% at 80% 70%, rgba(0,200,255,0.30), transparent),
+    linear-gradient(175deg, #000d1a 0%, #001838 40%, #003060 70%, #001025 100%);
+}
+#setupCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.setup-card {
+  position: relative; z-index: 1;
+  width: 680px;
+  background: rgba(8,20,50,0.92);
+  backdrop-filter: blur(50px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  overflow: hidden;
+  animation: cardIn .5s ease;
+}
+@keyframes cardIn {
+  from { opacity:0; transform:translateY(20px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.s-progress-track { height:3px; background:rgba(255,255,255,0.06); }
+.s-progress-fill {
+  height:100%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+.s-steps {
+  display:flex; align-items:center; justify-content:center;
+  padding: 20px 32px 0; gap:0;
+}
+.s-step { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; position:relative; }
+.s-step:not(:last-child)::after {
+  content:''; position:absolute; top:14px; left:calc(50% + 14px);
+  width:calc(100% - 28px); height:1px;
+  background:rgba(255,255,255,0.1); transition:background .4s;
+}
+.s-step.done:not(:last-child)::after { background:var(--accent2); }
+.s-dot {
+  width:28px; height:28px; border-radius:50%;
+  border:2px solid rgba(255,255,255,0.15);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:600; color:var(--text-dim);
+  transition:all .3s; background:rgba(255,255,255,0.04);
+  font-family:var(--font-display);
+}
+.s-step.active .s-dot { border-color:var(--accent); background:rgba(0,200,255,0.15); color:var(--accent); box-shadow:0 0 12px rgba(0,200,255,0.3); }
+.s-step.done .s-dot { border-color:var(--accent2); background:linear-gradient(135deg,var(--accent2),var(--accent)); color:white; }
+.s-label { font-size:10px; color:var(--text-dim); letter-spacing:.5px; text-align:center; white-space:nowrap; }
+.s-step.active .s-label { color:var(--accent); }
+.s-step.done .s-label { color:rgba(200,230,255,0.7); }
+
+.s-page { display:none; padding:32px 40px 36px; }
+.s-page.active { display:block; animation:fadeIn .35s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.s-icon { font-size:48px; margin-bottom:16px; display:block; }
+.s-title { font-family:var(--font-display); font-size:26px; font-weight:600; margin-bottom:8px; }
+.s-sub { font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:28px; }
+
+.s-field-group { display:flex; flex-direction:column; gap:12px; margin-bottom:28px; }
+.s-field-label { font-size:11px; font-weight:500; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+.s-field-wrap { position:relative; }
+.s-field {
+  width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+  border-radius:12px; padding:13px 16px; color:var(--text); font-family:var(--font);
+  font-size:14px; outline:none; transition:border-color .2s,background .2s;
+}
+.s-field:focus { border-color:var(--accent); background:rgba(0,200,255,0.05); }
+.s-field::placeholder { color:var(--text-dim); }
+.s-field.pin-field { letter-spacing:8px; font-size:20px; text-align:center; padding-right:44px; }
+.s-field.error { border-color:#ff4060 !important; }
+.s-eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:16px; }
+.s-field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+.s-license {
+  background:rgba(0,0,0,0.3); border:1px solid var(--glass-border);
+  border-radius:12px; padding:16px 18px; height:160px; overflow-y:auto;
+  font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:16px;
+}
+.s-check-row { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-dim); cursor:pointer; margin-bottom:24px; }
+.s-check-row input { accent-color:var(--accent); width:16px; height:16px; }
+
+.s-install-steps { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+.s-ist {
+  display:flex; align-items:center; gap:14px; padding:12px 16px;
+  border-radius:10px; background:rgba(255,255,255,0.03);
+  border:1px solid transparent; transition:all .3s; font-size:13px;
+}
+.s-ist.running { background:rgba(0,200,255,0.07); border-color:rgba(0,200,255,0.15); }
+.s-ist.done { background:rgba(0,200,255,0.05); border-color:rgba(0,200,255,0.1); color:var(--text-dim); }
+.s-ist-ico { font-size:18px; width:24px; text-align:center; flex-shrink:0; }
+.s-ist-txt { flex:1; }
+.s-ist-sta { font-size:11px; color:var(--text-dim); }
+.s-ist.running .s-ist-sta { color:var(--accent); }
+.s-ist.done .s-ist-sta { color:#7dffb4; }
+
+.s-big-bar { height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+.s-big-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:3px; transition:width .4s ease; }
+.s-pct { font-family:var(--font-display); font-size:13px; color:var(--accent); text-align:right; margin-bottom:20px; }
+
+.s-done-circle {
+  width:80px; height:80px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px; margin:0 auto 20px;
+  box-shadow:0 0 40px rgba(0,200,255,0.4);
+  animation:popIn .5s cubic-bezier(.2,1.3,.3,1);
+}
+@keyframes popIn { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+
+.s-btn-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.s-btn { padding:13px 28px; border-radius:12px; border:none; font-family:var(--font); font-size:14px; font-weight:500; cursor:pointer; transition:opacity .2s,transform .1s; }
+.s-btn:hover { opacity:.9; } .s-btn:active { transform:scale(.98); }
+.s-btn-primary { background:linear-gradient(135deg,var(--accent2),var(--accent)); color:white; box-shadow:0 4px 20px rgba(0,200,255,0.25); }
+.s-btn-secondary { background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); color:var(--text-dim); }
+.s-btn-launch { width:100%; padding:15px; font-size:15px; background:linear-gradient(135deg,var(--accent2),var(--accent)); color:white; border-radius:14px; border:none; cursor:pointer; font-family:var(--font); font-weight:500; box-shadow:0 4px 24px rgba(0,200,255,0.3); transition:opacity .2s,transform .1s; }
+.s-btn-launch:hover { opacity:.9; } .s-btn-launch:active { transform:scale(.98); }
+
+.spin-sm { width:14px; height:14px; border:2px solid rgba(0,200,255,0.2); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; flex-shrink:0; display:inline-block; }
+
+/* ══════════════════════════════════════════
+   OS — WALLPAPER & SCREENS
+══════════════════════════════════════════ */
+#wallpaper {
+  position:fixed; inset:0; z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%,rgba(0,100,220,0.55),transparent),
+    radial-gradient(ellipse 60% 80% at 80% 70%,rgba(0,200,255,0.30),transparent),
+    radial-gradient(ellipse 100% 100% at 50% 0%,rgba(0,30,80,0.9),transparent),
+    linear-gradient(175deg,#000d1a 0%,#001838 40%,#003060 70%,#001025 100%);
+}
+#wallpaper::before {
+  content:''; position:absolute; inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='600' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='300' cy='300' r='280' fill='none' stroke='rgba(0,200,255,0.04)' stroke-width='1'/%3E%3Ccircle cx='300' cy='300' r='220' fill='none' stroke='rgba(0,200,255,0.04)' stroke-width='1'/%3E%3Ccircle cx='300' cy='300' r='160' fill='none' stroke='rgba(0,200,255,0.04)' stroke-width='1'/%3E%3C/svg%3E") center/70% no-repeat;
+}
+.screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; transition:opacity .7s ease; }
+.screen.hidden { opacity:0; pointer-events:none; }
+
+/* BOOT */
+#boot { background:#000; z-index:100; }
+.boot-logo { font-family:var(--font-display); font-size:64px; font-weight:600; color:var(--accent); letter-spacing:4px; text-shadow:0 0 40px rgba(0,200,255,0.6); margin-bottom:8px; }
+.boot-sub { font-size:13px; color:var(--text-dim); letter-spacing:3px; text-transform:uppercase; margin-bottom:48px; }
+.boot-bar { width:200px; height:2px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:16px; }
+.boot-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:2px; animation:bootload 3.5s ease forwards; }
+@keyframes bootload { to{width:100%} }
+.boot-dots { display:flex; gap:8px; margin-top:24px; }
+.boot-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:.3; animation:blink 1.2s ease infinite; }
+.boot-dot:nth-child(2){animation-delay:.2s} .boot-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{50%{opacity:1}}
+
+/* LOCK */
+#lock { background:rgba(0,5,20,0.5); backdrop-filter:blur(40px); z-index:80; cursor:pointer; }
+.lock-time { font-family:var(--font-display); font-size:88px; font-weight:300; line-height:1; text-shadow:0 0 40px rgba(0,200,255,0.3); }
+.lock-date { font-size:18px; font-weight:400; color:var(--text-dim); margin-top:12px; margin-bottom:48px; }
+.lock-hint { font-size:13px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; animation:pulse 2s ease infinite; }
+@keyframes pulse{50%{opacity:.4}}
+.lock-unlock { display:none; flex-direction:column; align-items:center; gap:16px; margin-top:32px; }
+.lock-pin { display:flex; gap:12px; }
+.lock-pin-dot { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.4); transition:background .2s,border-color .2s; }
+.lock-pin-dot.filled { background:var(--accent); border-color:var(--accent); }
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-8px)} 80%{transform:translateX(8px)} }
+
+/* ══════════════════════════════════════════
+   OS — TASKBAR
+══════════════════════════════════════════ */
+#taskbar {
+  position:fixed; bottom:10px; left:50%; transform:translateX(-50%) translateY(80px);
+  height:var(--taskbar-h); background:rgba(8,20,50,0.82); backdrop-filter:blur(40px) saturate(180%);
+  border:1px solid var(--glass-border); border-radius:16px;
+  display:flex; align-items:center; padding:0 16px; gap:4px;
+  z-index:50; transition:transform .5s cubic-bezier(.2,1.3,.3,1);
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+#taskbar.visible { transform:translateX(-50%) translateY(0); }
+.tb-sep { width:1px; height:24px; background:var(--glass-border); margin:0 6px; }
+.tb-start { width:42px; height:42px; border-radius:10px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; font-family:var(--font-display); font-size:22px; font-weight:600; color:var(--accent); }
+.tb-start:hover { background:rgba(0,200,255,0.1); }
+.tb-clock { display:flex; flex-direction:column; align-items:center; padding:0 12px; font-size:11px; line-height:1.5; }
+
+/* ══════════════════════════════════════════
+   OS — START MENU
+══════════════════════════════════════════ */
+#startMenu {
+  position:fixed; bottom:72px; left:50%; transform:translateX(-50%) scale(.95) translateY(10px);
+  width:640px; background:rgba(8,18,45,0.95); backdrop-filter:blur(50px) saturate(200%);
+  border:1px solid var(--glass-border); border-radius:20px; padding:28px 28px 20px;
+  z-index:40; opacity:0; pointer-events:none; transition:opacity .2s,transform .2s;
+  box-shadow:0 24px 60px rgba(0,0,0,0.6);
+}
+#startMenu.visible { opacity:1; pointer-events:all; transform:translateX(-50%) scale(1) translateY(0); }
+.sm-search { width:100%; background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); border-radius:12px; padding:10px 16px; color:var(--text); font-family:var(--font); font-size:14px; outline:none; margin-bottom:24px; }
+.sm-search::placeholder{color:var(--text-dim)}
+.sm-section-title { font-size:11px; font-weight:500; color:var(--text-dim); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:12px; }
+.sm-apps { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin-bottom:20px; }
+.sm-app { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 8px 10px; border-radius:12px; cursor:pointer; transition:background .15s; }
+.sm-app:hover { background:rgba(255,255,255,0.08); }
+.sm-app-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+.sm-app-name { font-size:11px; text-align:center; color:var(--text-dim); line-height:1.2; }
+.sm-bottom { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--glass-border); padding-top:16px; }
+.sm-user { display:flex; align-items:center; gap:12px; }
+.sm-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--accent2),var(--accent)); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; }
+.sm-username { font-size:13px; font-weight:500; }
+.sm-power-group { display:flex; gap:4px; }
+.sm-power-btn { width:36px; height:36px; border-radius:8px; background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:17px; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; }
+.sm-power-btn:hover { background:rgba(255,80,80,0.15); color:#ff6060; }
+
+/* ══════════════════════════════════════════
+   OS — WINDOWS
+══════════════════════════════════════════ */
+.win {
+  position:absolute; border-radius:var(--win-radius);
+  background:rgba(8,20,50,0.92); backdrop-filter:blur(50px) saturate(200%);
+  border:1px solid var(--glass-border);
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  display:none; flex-direction:column; overflow:hidden; min-width:400px; min-height:300px; z-index:20;
+}
+.win.focused { box-shadow:0 24px 70px rgba(0,0,0,0.6),0 0 0 1px rgba(0,200,255,0.12) inset; z-index:25; }
+.win-titlebar { height:44px; display:flex; align-items:center; padding:0 16px; background:rgba(255,255,255,0.04); border-bottom:1px solid var(--glass-border); cursor:move; flex-shrink:0; gap:10px; }
+.win-title { font-size:13px; font-weight:500; flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.win-controls { display:flex; gap:4px; }
+.win-ctrl { width:28px; height:28px; border-radius:8px; border:none; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.06); color:var(--text-dim); transition:background .15s,color .15s; }
+.win-ctrl:hover { background:rgba(255,255,255,0.12); color:var(--text); }
+.win-ctrl.close:hover { background:rgba(255,60,60,0.3); color:#ff6060; }
+.win-body { flex:1; overflow:hidden; }
+
+/* ══════════════════════════════════════════
+   OS — SIDEBAR & FILES & SETTINGS
+══════════════════════════════════════════ */
+.sidebar-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--text-dim); transition:background .15s,color .15s; }
+.sidebar-item:hover,.sidebar-item.active { background:rgba(0,200,255,0.1); color:var(--text); }
+.sidebar-icon { font-size:16px; }
+.sidebar-header { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(200,230,255,0.3); padding:8px 12px 4px; margin-top:8px; }
+.files-sidebar { width:180px; flex-shrink:0; background:rgba(0,0,0,0.2); border-right:1px solid var(--glass-border); padding:12px 8px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
+.files-body-area { flex:1; overflow:auto; padding:16px; }
+.files-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:8px; }
+.file-item { display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 8px 10px; border-radius:10px; cursor:pointer; transition:background .15s; }
+.file-item:hover { background:rgba(0,200,255,0.1); }
+.file-icon { font-size:32px; }
+.file-name { font-size:11px; text-align:center; color:var(--text-dim); line-height:1.3; }
+.settings-sidebar { width:200px; flex-shrink:0; background:rgba(0,0,0,0.2); border-right:1px solid var(--glass-border); padding:12px 8px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
+.settings-content { flex:1; overflow-y:auto; padding:20px 24px; }
+.settings-section-title { font-family:var(--font-display); font-size:18px; font-weight:500; margin-bottom:20px; }
+.settings-card { background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+.settings-row { display:flex; align-items:center; padding:14px 16px; border-bottom:1px solid rgba(0,200,255,0.06); gap:14px; }
+.settings-row:last-child { border-bottom:none; }
+.settings-row-icon { font-size:18px; width:24px; text-align:center; }
+.settings-row-text { flex:1; }
+.settings-row-label { font-size:14px; }
+.settings-row-sub { font-size:12px; color:var(--text-dim); margin-top:2px; }
+.settings-row-value { font-size:13px; color:var(--accent); }
+.toggle { width:42px; height:24px; border-radius:12px; background:rgba(255,255,255,0.15); border:none; cursor:pointer; position:relative; transition:background .2s; flex-shrink:0; }
+.toggle.on { background:var(--accent2); }
+.toggle::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:white; transition:left .2s; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+.toggle.on::after { left:21px; }
+
+/* ══════════════════════════════════════════
+   OS — BROWSER
+══════════════════════════════════════════ */
+.browser-bar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(0,0,0,0.2); border-bottom:1px solid var(--glass-border); flex-shrink:0; }
+.browser-nav-btn { width:28px; height:28px; border-radius:8px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; }
+.browser-nav-btn:hover { background:rgba(255,255,255,0.08); color:var(--text); }
+.browser-url { flex:1; background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); border-radius:10px; padding:6px 14px; color:var(--text); font-family:var(--font); font-size:13px; outline:none; }
+.browser-url:focus { border-color:var(--accent); }
+.browser-new-tab { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:24px; }
+.browser-nt-title { font-family:var(--font-display); font-size:28px; font-weight:500; color:var(--accent); }
+.browser-nt-time { font-size:64px; font-weight:300; font-family:var(--font-display); line-height:1; }
+.browser-nt-date { font-size:16px; color:var(--text-dim); }
+.browser-nt-search { background:rgba(255,255,255,0.08); border:1px solid var(--glass-border); border-radius:28px; padding:12px 24px; color:var(--text); font-family:var(--font); font-size:15px; outline:none; width:360px; text-align:center; }
+.browser-nt-search::placeholder{color:var(--text-dim)}
+.browser-nt-search:focus { border-color:var(--accent); }
+
+/* ══════════════════════════════════════════
+   OS — TERMINAL
+══════════════════════════════════════════ */
+.terminal-body { padding:12px 16px; font-family:'Consolas','Courier New',monospace; font-size:13px; line-height:1.7; color:#7dffb4; background:rgba(0,8,20,0.9); height:100%; overflow-y:auto; }
+.terminal-line { display:flex; gap:8px; margin-bottom:2px; }
+.terminal-prompt { color:var(--accent); flex-shrink:0; }
+.terminal-output { color:rgba(200,255,230,0.6); padding-left:16px; }
+.terminal-input { background:none; border:none; outline:none; color:#c8e8ff; font-family:inherit; font-size:13px; flex:1; caret-color:var(--accent); }
+
+/* ══════════════════════════════════════════
+   OS — MISC
+══════════════════════════════════════════ */
+#notifications { position:fixed; top:16px; right:16px; width:320px; z-index:60; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.notif { background:rgba(8,20,50,0.95); backdrop-filter:blur(30px); border:1px solid var(--glass-border); border-radius:14px; padding:14px 16px; pointer-events:all; display:flex; gap:12px; animation:notifIn .3s ease; transition:opacity .3s,transform .3s; }
+@keyframes notifIn{from{opacity:0;transform:translateX(20px)}}
+.notif.out{opacity:0;transform:translateX(20px)}
+.notif-icon{font-size:20px;flex-shrink:0;padding-top:2px}
+.notif-body{flex:1}
+.notif-title{font-size:13px;font-weight:500;margin-bottom:2px}
+.notif-msg{font-size:12px;color:var(--text-dim);line-height:1.4}
+.notif-close{background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:16px;padding:0;align-self:flex-start}
+.notif-close:hover{color:var(--text)}
+
+#desktop-icons { position:fixed; top:20px; left:20px; display:flex; flex-direction:column; gap:6px; }
+.desktop-icon { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px; border-radius:10px; cursor:pointer; width:80px; transition:background .15s; }
+.desktop-icon:hover { background:rgba(255,255,255,0.1); }
+.desktop-icon-img { font-size:36px; }
+.desktop-icon-name { font-size:11px; text-align:center; color:var(--text); text-shadow:0 1px 4px rgba(0,0,0,0.8); line-height:1.3; }
+
+#powerOverlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0); pointer-events:none; transition:background 1s ease; }
+#powerOverlay.fade { background:rgba(0,0,0,1); pointer-events:all; }
+#shutdownScreen { display:none; position:fixed; inset:0; background:#000; z-index:300; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+
+#ctxMenu { position:fixed; background:rgba(8,20,50,0.97); backdrop-filter:blur(30px); border:1px solid var(--glass-border); border-radius:12px; padding:6px; z-index:100; display:none; min-width:180px; box-shadow:0 16px 40px rgba(0,0,0,0.5); }
+.ctx-item { padding:9px 14px; border-radius:8px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:10px; color:var(--text-dim); transition:background .1s,color .1s; }
+.ctx-item:hover { background:rgba(0,200,255,0.12); color:var(--text); }
+.ctx-sep { height:1px; background:var(--glass-border); margin:4px 0; }
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:rgba(0,200,255,0.2);border-radius:2px}
+/* Hide browser native password reveal eye */
+input[type=password]::-ms-reveal,
+input[type=password]::-ms-clear,
+input[type=password]::-webkit-credentials-auto-fill-button { display:none !important; }
+
+.dragging * { user-select:none !important; }
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Startup sound generated via Web Audio API in JS -->
+
+<!-- ══ PARTICLES CANVAS (setup only) ══ -->
+<canvas id="setupCanvas"></canvas>
+
+<!-- ══════════════════════════════════════════
+     SETUP INSTALLER
+══════════════════════════════════════════ -->
+<div id="setupApp">
+  <div class="setup-card">
+    <div class="s-progress-track"><div class="s-progress-fill" id="sProgressFill" style="width:0%"></div></div>
+    <div class="s-steps" id="sStepsBar">
+      <div class="s-step active" id="ssi0"><div class="s-dot">1</div><div class="s-label">Welcome</div></div>
+      <div class="s-step" id="ssi1"><div class="s-dot">2</div><div class="s-label">License</div></div>
+      <div class="s-step" id="ssi2"><div class="s-dot">3</div><div class="s-label">Account</div></div>
+      <div class="s-step" id="ssi3"><div class="s-dot">4</div><div class="s-label">Install</div></div>
+      <div class="s-step" id="ssi4"><div class="s-dot">5</div><div class="s-label">Done</div></div>
+    </div>
+
+    <!-- PAGE 0: WELCOME -->
+    <div class="s-page active" id="sp0">
+      <span class="s-icon">◈</span>
+      <div class="s-title">Welcome to AeroWaterOS</div>
+      <div class="s-sub">Install <strong style="color:var(--accent)">AeroWaterOS 2.2.0</strong> or sign in to your existing AquaSpace account.</div>
+      <div style="display:flex;gap:12px;margin-bottom:24px;">
+        <div style="flex:1;padding:14px 16px;background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.12);border-radius:12px;"><div style="font-size:18px;margin-bottom:4px;">⚡</div><div style="font-size:12px;font-weight:500;">Fast Setup</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Under 2 minutes</div></div>
+        <div style="flex:1;padding:14px 16px;background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.12);border-radius:12px;"><div style="font-size:18px;margin-bottom:4px;">🛡️</div><div style="font-size:12px;font-weight:500;">Secure</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">AquaShield protected</div></div>
+        <div style="flex:1;padding:14px 16px;background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.12);border-radius:12px;"><div style="font-size:18px;margin-bottom:4px;">☁️</div><div style="font-size:12px;font-weight:500;">Cloud Ready</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">AquaCloud sync</div></div>
+      </div>
+      <!-- Sign In panel (existing account) -->
+      <div id="signInPanel" style="display:none;background:rgba(0,200,255,0.04);border:1px solid var(--glass-border);border-radius:14px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:500;margin-bottom:14px;color:var(--accent);">👤 Sign in to existing account</div>
+        <input class="s-field" id="siEmail" type="email" placeholder="your@gmail.com" style="margin-bottom:10px;">
+        <div class="s-field-wrap" style="margin-bottom:10px;">
+          <input class="s-field pin-field" id="siPin" type="password" maxlength="4" placeholder="••••"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="padding-right:44px;">
+          <button class="s-eye" onclick="const f=document.getElementById('siPin');f.type=f.type==='password'?'text':'password'">👁</button>
+        </div>
+        <div id="siErr" style="font-size:12px;color:#ff6060;min-height:16px;margin-bottom:10px;"></div>
+        <button class="s-btn s-btn-primary" style="width:100%;justify-content:center;" onclick="signInExisting()">Sign In →</button>
+      </div>
+      <div class="s-btn-row">
+        <button class="s-btn s-btn-secondary" onclick="toggleSignIn()" id="siToggleBtn">Already have an account?</button>
+        <button class="s-btn s-btn-primary" onclick="sGoTo(1)">Fresh Install →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 1: LICENSE -->
+    <div class="s-page" id="sp1">
+      <span class="s-icon">📋</span>
+      <div class="s-title">License Agreement</div>
+      <div class="s-sub">Read and accept the AquaSpace EULA to continue.</div>
+      <div class="s-license">
+        <strong>AQUASPACE CORPORATION — END USER LICENSE AGREEMENT</strong><br><br>
+        This Agreement is between you ("User") and AquaSpace Corporation ("AquaSpace") for AeroWaterOS 2.2.0 ("Software").<br><br>
+        <strong>1. GRANT OF LICENSE</strong><br>AquaSpace grants you a non-exclusive, non-transferable license to install and use this Software on a single device for personal, non-commercial purposes.<br><br>
+        <strong>2. RESTRICTIONS</strong><br>You may not copy, modify, distribute, reverse engineer, sublicense, sell, or use the Software for any unlawful purpose.<br><br>
+        <strong>3. INTELLECTUAL PROPERTY</strong><br>The Software and all copies remain the property of AquaSpace. All rights not granted are reserved.<br><br>
+        <strong>4. DISCLAIMER</strong><br>THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. AQUASPACE DISCLAIMS ALL WARRANTIES INCLUDING MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.<br><br>
+        <strong>5. AQUACLOUD</strong><br>Optional cloud services subject to separate privacy terms at aquaspace.corp/privacy.<br><br>
+        © 2024–2025 AquaSpace Corporation. All rights reserved.
+      </div>
+      <label class="s-check-row"><input type="checkbox" id="sLicenseChk" onchange="sCheckLicense()"> I have read and agree to the AquaSpace End User License Agreement</label>
+      <div class="s-btn-row">
+        <button class="s-btn s-btn-secondary" onclick="sGoTo(0)">← Back</button>
+        <button class="s-btn s-btn-primary" id="sLicenseNext" onclick="sGoTo(2)" disabled style="opacity:.4;cursor:not-allowed;">Next →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 2: ACCOUNT -->
+    <div class="s-page" id="sp2">
+      <span class="s-icon">👤</span>
+      <div class="s-title">Create Your Account</div>
+      <div class="s-sub">Set up your AquaSpace account to personalise your experience.</div>
+      <div class="s-field-group">
+        <div class="s-field-row">
+          <div><div class="s-field-label">Username</div><input class="s-field" id="sUser" placeholder="e.g. aquauser" maxlength="20"></div>
+          <div><div class="s-field-label">Device Name</div><input class="s-field" id="sDevice" placeholder="e.g. AquaPC-1" maxlength="20"></div>
+        </div>
+        <div><div class="s-field-label">Email Address *</div><input class="s-field" id="sEmail" type="email" placeholder="your@gmail.com"></div>
+        <div>
+          <div class="s-field-label">Language to Install</div>
+          <select class="s-field" id="sLang" style="cursor:pointer;color:var(--text);background-color:rgba(8,20,50,0.95);">
+            <option value="en"  style="background:#0a1428;color:#e8f4ff;">🇬🇧 English</option>
+            <option value="it"  style="background:#0a1428;color:#e8f4ff;">🇮🇹 Italian — Italiano</option>
+            <option value="es"  style="background:#0a1428;color:#e8f4ff;">🇪🇸 Spanish — Español</option>
+            <option value="fr"  style="background:#0a1428;color:#e8f4ff;">🇫🇷 French — Français</option>
+            <option value="de"  style="background:#0a1428;color:#e8f4ff;">🇩🇪 German — Deutsch</option>
+            <option value="pt"  style="background:#0a1428;color:#e8f4ff;">🇧🇷 Portuguese — Português</option>
+            <option value="ja"  style="background:#0a1428;color:#e8f4ff;">🇯🇵 Japanese — 日本語</option>
+            <option value="zh"  style="background:#0a1428;color:#e8f4ff;">🇨🇳 Chinese — 中文</option>
+            <option value="ar"  style="background:#0a1428;color:#e8f4ff;">🇸🇦 Arabic — العربية</option>
+            <option value="ko"  style="background:#0a1428;color:#e8f4ff;">🇰🇷 Korean — 한국어</option>
+          </select>
+        </div>
+        <div>
+          <div class="s-field-label">Create PIN (4 digits) *</div>
+          <div class="s-field-wrap">
+            <input class="s-field pin-field" id="sPin" type="password" placeholder="••••" maxlength="4"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+              style="padding-right:16px;">
+          </div>
+        </div>
+        <div>
+          <div class="s-field-label">Confirm PIN *</div>
+          <div class="s-field-wrap"><input class="s-field pin-field" id="sPin2" type="password" placeholder="••••" maxlength="4" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="padding-right:16px;"></div>
+        </div>
+      </div>
+      <div class="s-btn-row">
+        <button class="s-btn s-btn-secondary" onclick="sGoTo(1)">← Back</button>
+        <button class="s-btn s-btn-primary" onclick="sValidateAccount()">Next →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 3: INSTALLING -->
+    <div class="s-page" id="sp3">
+      <span class="s-icon">⚙️</span>
+      <div class="s-title">Installing AeroWaterOS</div>
+      <div class="s-sub" id="sInstallSub">Please wait while AeroWaterOS is being installed...</div>
+      <div class="s-big-bar"><div class="s-big-fill" id="sBigFill"></div></div>
+      <div class="s-pct" id="sPct">0%</div>
+      <div class="s-install-steps">
+        <div class="s-ist" id="ist0"><span class="s-ist-ico">💾</span><span class="s-ist-txt">Preparing disk partitions</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist1"><span class="s-ist-ico">📦</span><span class="s-ist-txt">Copying system files</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist2"><span class="s-ist-ico">🔧</span><span class="s-ist-txt">Installing AquaSpace kernel</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist3"><span class="s-ist-ico">🌐</span><span class="s-ist-txt">Configuring AeroWater Edge</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist4"><span class="s-ist-ico">☁️</span><span class="s-ist-txt">Connecting AquaCloud services</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist5"><span class="s-ist-ico">👤</span><span class="s-ist-txt">Creating user account</span><span class="s-ist-sta">Waiting...</span></div>
+        <div class="s-ist" id="ist6"><span class="s-ist-ico">✅</span><span class="s-ist-txt">Finalizing installation</span><span class="s-ist-sta">Waiting...</span></div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: DONE -->
+    <div class="s-page" id="sp4">
+      <div class="s-done-circle">✓</div>
+      <div class="s-title" style="text-align:center;">Installation Complete!</div>
+      <div class="s-sub" style="text-align:center;">AeroWaterOS 2.2.0 has been installed.<br>Welcome, <strong id="sDoneUser" style="color:var(--accent)">aquauser</strong>! Your device is ready.</div>
+      <div style="background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.12);border-radius:14px;padding:16px 20px;margin-bottom:28px;">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Summary</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+          <div style="color:var(--text-dim);">OS</div><div style="color:var(--accent);">AeroWaterOS 2.2.0</div>
+          <div style="color:var(--text-dim);">Username</div><div id="sSumUser">—</div>
+          <div style="color:var(--text-dim);">Device</div><div id="sSumDevice">—</div>
+          <div style="color:var(--text-dim);">Email</div><div id="sSumEmail" style="font-size:12px;">—</div>
+        </div>
+      </div>
+      <button class="s-btn-launch" onclick="sLaunchOS()">🚀 Launch AeroWaterOS</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     OS
+══════════════════════════════════════════ -->
+<div id="wallpaper"></div>
+
+<div class="screen" id="boot" style="display:none;">
+  <div class="boot-logo">◈ AeroWaterOS</div>
+  <div class="boot-sub">by AquaSpace Corporation</div>
+  <div class="boot-bar"><div class="boot-bar-fill"></div></div>
+  <div class="boot-dots"><div class="boot-dot"></div><div class="boot-dot"></div><div class="boot-dot"></div></div>
+</div>
+
+<div class="screen hidden" id="lock" onclick="showPad()">
+  <div class="lock-time" id="lockTime">00:00</div>
+  <div class="lock-date" id="lockDate">Loading...</div>
+  <div class="lock-hint" id="lockHint">Click to unlock</div>
+  <div class="lock-unlock" id="lockUnlock">
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:4px;" id="lockUsername">aquauser</div>
+    <div class="lock-pin" id="lockPinDots">
+      <div class="lock-pin-dot" id="pd0"></div>
+      <div class="lock-pin-dot" id="pd1"></div>
+      <div class="lock-pin-dot" id="pd2"></div>
+      <div class="lock-pin-dot" id="pd3"></div>
+    </div>
+    <div style="position:relative;margin-top:8px;">
+      <input id="lockPinInput" type="password" maxlength="4" placeholder="Enter PIN" autocomplete="off"
+        style="background:rgba(255,255,255,0.08);border:1px solid var(--glass-border);border-radius:10px;padding:10px 44px 10px 16px;color:var(--text);font-family:var(--font);font-size:16px;letter-spacing:6px;text-align:center;outline:none;width:190px;"
+        oninput="lockPinType(event)" onkeydown="if(event.key==='Enter')lockPinType(event)">
+      <button onclick="toggleLockPin()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:14px;">👁</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:8px;">Press Enter or type 4 digits</div>
+  </div>
+</div>
+
+<div id="powerOverlay"></div>
+<div id="shutdownScreen" style="display:none;position:fixed;inset:0;background:#000;z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+  <div style="font-family:var(--font-display);font-size:22px;color:rgba(255,255,255,0.12);letter-spacing:2px;">◈ AeroWaterOS</div>
+  <div style="font-size:12px;color:rgba(255,255,255,0.07);letter-spacing:3px;text-transform:uppercase;">Press CTRL + any key to power on</div>
+</div>
+
+<div id="desktop" style="display:none;">
+  <div id="desktop-icons">
+    <div class="desktop-icon" ondblclick="openWindow('win-browser')"><div class="desktop-icon-img">🌊</div><div class="desktop-icon-name">AeroWater Edge</div></div>
+    <div class="desktop-icon" ondblclick="openWindow('win-files')"><div class="desktop-icon-img">📁</div><div class="desktop-icon-name">Files</div></div>
+    <div class="desktop-icon" ondblclick="openWindow('win-terminal')"><div class="desktop-icon-img" style="font-size:48px;">⌂</div><div class="desktop-icon-name">Terminal</div></div>
+    <div class="desktop-icon" ondblclick="openWindow('win-settings')"><div class="desktop-icon-img">⚙️</div><div class="desktop-icon-name">Settings</div></div>
+  </div>
+
+  <!-- BROWSER -->
+  <div class="win" id="win-browser" style="width:900px;height:580px;top:80px;left:120px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-browser')">
+      <span>🌊</span><span class="win-title">AeroWater Edge</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-browser')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-browser')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-browser')">✕</button>
+      </div>
+    </div>
+    <div class="browser-bar">
+      <div style="display:flex;gap:2px;">
+        <button class="browser-nav-btn" onclick="browserBack()">←</button>
+        <button class="browser-nav-btn" onclick="browserFwd()">→</button>
+        <button class="browser-nav-btn" onclick="browserRefresh()">↻</button>
+      </div>
+      <input class="browser-url" id="browserUrl" placeholder="Search or enter URL..." onkeydown="browserNav(event)">
+      <button class="browser-nav-btn" onclick="browserHome()">⌂</button>
+    </div>
+    <div class="win-body" style="display:flex;flex-direction:column;overflow:hidden;">
+      <div id="browser-newtab" class="browser-new-tab">
+        <div class="browser-nt-title">AeroWater Edge</div>
+        <div class="browser-nt-time" id="ntTime">00:00</div>
+        <div class="browser-nt-date" id="ntDate"></div>
+        <input class="browser-nt-search" placeholder="Search the web..." onkeydown="browserNavFromNt(event)">
+      </div>
+      <iframe id="browser-frame" style="display:none;width:100%;height:100%;border:none;"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        src="about:blank"></iframe>
+      <!-- Browser blocked overlay (shown when iframe is blocked) -->
+      <div id="browser-blocked" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;">
+        <div style="font-size:48px;">🌊</div>
+        <div style="font-family:var(--font-display);font-size:18px;font-weight:500;" id="blockedTitle">Page blocked</div>
+        <div style="font-size:13px;color:var(--text-dim);text-align:center;max-width:360px;line-height:1.6;" id="blockedMsg">This website doesn't allow embedding. Click Open to view it in a new tab.</div>
+        <button id="openExtBtn" onclick="openExternal()" style="background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:10px;padding:12px 24px;color:white;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;">🔗 Open in new tab</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILES -->
+  <div class="win" id="win-files" style="width:760px;height:520px;top:100px;left:200px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-files')">
+      <span>📁</span><span class="win-title" id="filesTitle">Files — Home</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-files')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-files')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-files')">✕</button>
+      </div>
+    </div>
+    <div class="win-body" style="display:flex;overflow:hidden;height:100%;">
+      <div class="files-sidebar">
+        <div class="sidebar-header">Quick Access</div>
+        <div class="sidebar-item active" onclick="showFiles('home',this)"><span class="sidebar-icon">🏠</span>Home</div>
+        <div class="sidebar-item" onclick="showFiles('desktop',this)"><span class="sidebar-icon">🖥️</span>Desktop</div>
+        <div class="sidebar-item" onclick="showFiles('docs',this)"><span class="sidebar-icon">📄</span>Documents</div>
+        <div class="sidebar-item" onclick="showFiles('pics',this)"><span class="sidebar-icon">🖼️</span>Pictures</div>
+        <div class="sidebar-item" onclick="showFiles('music',this)"><span class="sidebar-icon">🎵</span>Music</div>
+        <div class="sidebar-item" onclick="showFiles('videos',this)"><span class="sidebar-icon">🎬</span>Videos</div>
+        <div class="sidebar-header">Drives</div>
+        <div class="sidebar-item" onclick="showFiles('c',this)"><span class="sidebar-icon">💾</span>AquaDrive (C:)</div>
+        <div class="sidebar-item" onclick="showFiles('d',this)"><span class="sidebar-icon">📀</span>Cloud (D:)</div>
+      </div>
+      <div class="files-body-area"><div class="files-grid" id="filesGrid"></div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="win" id="win-settings" style="width:720px;height:500px;top:110px;left:180px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-settings')">
+      <span>⚙️</span><span class="win-title">Settings</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-settings')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-settings')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-settings')">✕</button>
+      </div>
+    </div>
+    <div class="win-body" style="display:flex;overflow:hidden;height:100%;">
+      <div class="settings-sidebar">
+        <div class="sidebar-header">Settings</div>
+        <div class="sidebar-item active" onclick="showSettings('system',this)"><span class="sidebar-icon">🖥️</span>System</div>
+        <div class="sidebar-item" onclick="showSettings('network',this)"><span class="sidebar-icon">🌐</span>Network</div>
+        <div class="sidebar-item" onclick="showSettings('display',this)"><span class="sidebar-icon">🎨</span>Display</div>
+        <div class="sidebar-item" onclick="showSettings('privacy',this)"><span class="sidebar-icon">🔒</span>Privacy</div>
+        <div class="sidebar-item" onclick="showSettings('update',this)"><span class="sidebar-icon">🔄</span>Updates</div>
+        <div class="sidebar-item" onclick="showSettings('about',this)"><span class="sidebar-icon">ℹ️</span>About</div>
+      </div>
+      <div class="settings-content" id="settingsContent"></div>
+    </div>
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="win" id="win-terminal" style="width:680px;height:440px;top:120px;left:220px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-terminal')">
+      <span>⌂</span><span class="win-title">AquaSpace Terminal</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-terminal')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-terminal')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-terminal')">✕</button>
+      </div>
+    </div>
+    <div class="win-body">
+      <div class="terminal-body" id="terminalBody" onclick="document.getElementById('termInput').focus()">
+        <div class="terminal-line"><span style="color:var(--accent)">AeroWaterOS</span><span style="color:var(--text-dim)"> v2.2.0 — AquaSpace Corporation</span></div>
+        <div class="terminal-line" style="margin-bottom:10px;"><span style="color:var(--text-dim)">Type 'help' for commands.</span></div>
+        <div id="termLines"></div>
+        <div class="terminal-line" id="termInputLine">
+          <span class="terminal-prompt" id="termPrompt">aquauser@AquaPC:~$</span>
+          <input class="terminal-input" id="termInput" autocomplete="off" spellcheck="false" onkeydown="termKey(event)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTEPAD -->
+  <div class="win" id="win-notepad" style="width:620px;height:480px;top:90px;left:160px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-notepad')">
+      <span>📝</span><span class="win-title" id="notepadTitle">Untitled — Notepad</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-notepad')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-notepad')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-notepad')">✕</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:6px 12px;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--glass-border);font-size:12px;color:var(--text-dim);">
+      <span style="cursor:pointer;padding:3px 8px;border-radius:6px;" onclick="notepadNew()">New</span>
+      <span style="cursor:pointer;padding:3px 8px;border-radius:6px;" onclick="notepadSave()">Save</span>
+      <span style="cursor:pointer;padding:3px 8px;border-radius:6px;" onclick="notepadClear()">Clear</span>
+      <span id="notepadStatus" style="margin-left:auto;color:var(--accent);font-size:11px;"></span>
+    </div>
+    <div class="win-body"><textarea id="notepadArea" spellcheck="false" style="width:100%;height:100%;background:rgba(0,5,20,0.8);color:#c8e8ff;font-family:'Consolas',monospace;font-size:14px;line-height:1.7;border:none;outline:none;padding:16px;resize:none;caret-color:var(--accent);" placeholder="Start typing..."></textarea></div>
+  </div>
+
+  <!-- AQUAPLAYER -->
+  <div class="win" id="win-player" style="width:500px;height:460px;top:100px;left:180px;">
+    <div class="win-titlebar" onmousedown="startDrag(event,'win-player')">
+      <span>🎵</span><span class="win-title">AquaPlayer</span>
+      <div class="win-controls">
+        <button class="win-ctrl" onclick="minimizeWin('win-player')">−</button>
+        <button class="win-ctrl" onclick="toggleMax('win-player')">□</button>
+        <button class="win-ctrl close" onclick="closeWin('win-player')">✕</button>
+      </div>
+    </div>
+    <div class="win-body" style="display:flex;height:100%;overflow:hidden;">
+      <!-- Playlist sidebar -->
+      <div style="width:180px;flex-shrink:0;background:rgba(0,0,0,0.25);border-right:1px solid var(--glass-border);overflow-y:auto;padding:8px;">
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);padding:6px 8px 8px;">Playlist</div>
+        <div id="playerPlaylist"></div>
+      </div>
+      <!-- Player main -->
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;">
+        <div id="playerAlbumArt" style="width:120px;height:120px;border-radius:14px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 0 30px rgba(0,200,255,0.3);transition:transform .4s ease;">🎵</div>
+        <div style="text-align:center;width:100%;">
+          <div id="playerTitle" style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">AquaSpace Vibes</div>
+          <div id="playerArtist" style="font-size:12px;color:var(--text-dim);margin-top:3px;">AquaSpace Music</div>
+        </div>
+        <div style="width:100%;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);">
+            <span id="playerCurrent">0:00</span><span id="playerTotal">3:32</span>
+          </div>
+          <div id="playerBar" style="width:100%;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;cursor:pointer;" onclick="playerSeek(event)">
+            <div id="playerFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width .8s linear;"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <button onclick="playerPrev()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;transition:color .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-dim)'">⏮</button>
+          <button id="playerPlayBtn" onclick="playerToggle()" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:white;font-size:22px;cursor:pointer;box-shadow:0 0 20px rgba(0,200,255,0.35);transition:transform .1s;">▶</button>
+          <button onclick="playerNext()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;transition:color .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-dim)'">⏭</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;width:100%;">
+          <span style="font-size:14px;">🔊</span>
+          <input type="range" min="0" max="100" value="70" id="playerVolSlider" style="flex:1;accent-color:var(--accent);" oninput="playerVolumeChange(this.value)">
+          <span id="playerVolPct" style="font-size:11px;color:var(--text-dim);width:28px;">70%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASKBAR -->
+  <div id="taskbar">
+    <button class="tb-start" onclick="toggleStart()" title="Start">◈</button>
+    <div class="tb-sep"></div>
+    <div style="position:relative;display:flex;align-items:center;">
+      <span style="position:absolute;left:10px;font-size:13px;color:var(--text-dim);pointer-events:none;">🔍</span>
+      <input id="tbSearchInput" placeholder="Search apps, files..."
+        style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:10px;padding:6px 12px 6px 30px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;width:200px;caret-color:var(--accent);"
+        onfocus="tbSearchFocus()" oninput="tbSearchQuery(this.value)" onblur="setTimeout(tbSearchBlur,200)" onkeydown="tbSearchKey(event)">
+      <div id="tbSearchResults" style="display:none;position:absolute;bottom:44px;left:0;width:260px;background:rgba(8,18,50,0.97);backdrop-filter:blur(30px);border:1px solid var(--glass-border);border-radius:12px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,0.5);z-index:60;"></div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="tb-clock">
+      <span id="tbTime" style="font-size:13px;font-weight:500;"></span>
+      <span id="tbDate" style="font-size:11px;color:var(--text-dim);"></span>
+    </div>
+  </div>
+
+  <!-- START MENU -->
+  <div id="startMenu">
+    <input class="sm-search" placeholder="🔍  Search apps, files, settings...">
+    <div class="sm-section-title">Pinned</div>
+    <div class="sm-apps">
+      <div class="sm-app" onclick="openWindow('win-browser');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#005fcc,#00c8ff)">🌊</div><div class="sm-app-name">Edge</div></div>
+      <div class="sm-app" onclick="openWindow('win-files');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#ff9500,#ffd000)">📁</div><div class="sm-app-name">Files</div></div>
+      <div class="sm-app" onclick="openWindow('win-settings');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#444,#222)">⚙️</div><div class="sm-app-name">Settings</div></div>
+      <div class="sm-app" onclick="openWindow('win-notepad');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#0078d4,#00b4d8)">📝</div><div class="sm-app-name">Notepad</div></div>
+      <div class="sm-app" onclick="openWindow('win-player');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#c71585,#ff69b4)">🎵</div><div class="sm-app-name">AquaPlayer</div></div>
+      <div class="sm-app" onclick="openWindow('win-terminal');toggleStart()"><div class="sm-app-icon" style="background:linear-gradient(135deg,#1a1a2e,#0d3b2e)">⌂</div><div class="sm-app-name">Terminal</div></div>
+    </div>
+    <div class="sm-bottom">
+      <div class="sm-user">
+        <div class="sm-avatar" id="smAvatar">A</div>
+        <div><div class="sm-username" id="smUsername">aquauser</div><div style="font-size:11px;color:var(--text-dim);">AquaSpace Account</div></div>
+      </div>
+      <div class="sm-power-group">
+        <button class="sm-power-btn" title="Lock" onclick="lockScreen()">🔒</button>
+        <button class="sm-power-btn" title="Restart" onclick="restartOS()">↺</button>
+        <button class="sm-power-btn" title="Shut Down" onclick="shutdownOS()" style="font-size:18px;">↪</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="notifications"></div>
+<div id="ctxMenu">
+  <div class="ctx-item" onclick="notify('🎨 Wallpaper','Wallpaper settings coming soon')">🎨 Change wallpaper</div>
+  <div class="ctx-item" onclick="openWindow('win-settings');ctxMenu.style.display='none'">⚙️ Display settings</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="refreshDesktop()">↻ Refresh</div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   SETUP JS
+══════════════════════════════════════════ */
+// Particles
+const sc = document.getElementById('setupCanvas');
+const sc2 = sc.getContext('2d');
+sc.width = window.innerWidth; sc.height = window.innerHeight;
+window.addEventListener('resize',()=>{sc.width=window.innerWidth;sc.height=window.innerHeight;});
+const spts = Array.from({length:55},()=>({x:Math.random()*sc.width,y:Math.random()*sc.height,r:Math.random()*1.5+0.3,dx:(Math.random()-.5)*.3,dy:(Math.random()-.5)*.3,o:Math.random()*.4+.1}));
+function drawSetupParticles(){sc2.clearRect(0,0,sc.width,sc.height);spts.forEach(p=>{sc2.beginPath();sc2.arc(p.x,p.y,p.r,0,Math.PI*2);sc2.fillStyle=`rgba(0,200,255,${p.o})`;sc2.fill();p.x+=p.dx;p.y+=p.dy;if(p.x<0||p.x>sc.width)p.dx*=-1;if(p.y<0||p.y>sc.height)p.dy*=-1;});requestAnimationFrame(drawSetupParticles);}
+drawSetupParticles();
+
+const sProgressMap = [0,20,45,70,100];
+
+function sGoTo(step){
+  document.querySelectorAll('.s-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('sp'+step).classList.add('active');
+  for(let i=0;i<5;i++){
+    const si=document.getElementById('ssi'+i);
+    si.classList.remove('active','done');
+    if(i<step){si.classList.add('done');si.querySelector('.s-dot').textContent='✓';}
+    else if(i===step)si.classList.add('active');
+    else si.querySelector('.s-dot').textContent=i+1;
+  }
+  document.getElementById('sProgressFill').style.width=sProgressMap[step]+'%';
+  if(step===3)sStartInstall();
+}
+
+function sCheckLicense(){
+  const ok=document.getElementById('sLicenseChk').checked;
+  const btn=document.getElementById('sLicenseNext');
+  btn.disabled=!ok; btn.style.opacity=ok?'1':'0.4'; btn.style.cursor=ok?'pointer':'not-allowed';
+}
+
+function sTogglePin(){const f=document.getElementById('sPin');f.type=f.type==='password'?'text':'password';}
+
+function sValidateAccount(){
+  const user=document.getElementById('sUser').value.trim();
+  const email=document.getElementById('sEmail').value.trim();
+  const device=document.getElementById('sDevice').value.trim();
+  const pin=document.getElementById('sPin').value.trim();
+  const pin2=document.getElementById('sPin2').value.trim();
+  ['sUser','sEmail','sDevice','sPin','sPin2'].forEach(id=>document.getElementById(id).classList.remove('error'));
+  let ok=true;
+  if(!email||!email.includes('@')){document.getElementById('sEmail').classList.add('error');ok=false;}
+  if(!pin||pin.length<4){document.getElementById('sPin').classList.add('error');ok=false;}
+  if(pin!==pin2){document.getElementById('sPin2').classList.add('error');ok=false;}
+  if(!ok)return;
+  // Save for OS + persist to localStorage
+  window._osUser=user||'aquauser';
+  window._osEmail=email;
+  window._osDevice=device||'AquaPC-1';
+  window._osPin=pin;
+  window._osLang=document.getElementById('sLang').value||'en';
+  // Save account to localStorage for future sign-in
+  const accounts=JSON.parse(localStorage.getItem('awos_accounts')||'[]');
+  const idx=accounts.findIndex(a=>a.email===email);
+  const acct={user:window._osUser,email,device:window._osDevice,pin,lang:window._osLang};
+  if(idx>=0)accounts[idx]=acct; else accounts.push(acct);
+  localStorage.setItem('awos_accounts',JSON.stringify(accounts));
+  sGoTo(3);
+}
+
+const sInstallTasks=[
+  {id:'ist0',dur:1600},{id:'ist1',dur:2400},{id:'ist2',dur:2000},
+  {id:'ist3',dur:1400},{id:'ist4',dur:1200},{id:'ist5',dur:1000},{id:'ist6',dur:800}
+];
+
+function sStartInstall(){
+  let elapsed=0;
+  const total=sInstallTasks.reduce((s,t)=>s+t.dur,0);
+  function run(i){
+    if(i>=sInstallTasks.length){
+      document.getElementById('sBigFill').style.width='100%';
+      document.getElementById('sPct').textContent='100%';
+      document.getElementById('sInstallSub').textContent='Installation complete!';
+      setTimeout(()=>{
+        document.getElementById('sDoneUser').textContent=window._osUser||'aquauser';
+        document.getElementById('sSumUser').textContent=window._osUser||'aquauser';
+        document.getElementById('sSumDevice').textContent=window._osDevice||'AquaPC-1';
+        document.getElementById('sSumEmail').textContent=window._osEmail||'';
+        sGoTo(4);
+      },500);
+      return;
+    }
+    const task=sInstallTasks[i];
+    const el=document.getElementById(task.id);
+    if(i>0){const prev=document.getElementById(sInstallTasks[i-1].id);prev.classList.remove('running');prev.classList.add('done');prev.querySelector('.s-ist-sta').textContent='Done ✓';}
+    el.classList.add('running');
+    el.querySelector('.s-ist-sta').innerHTML='<span class="spin-sm"></span>';
+    const startPct=(elapsed/total)*100; elapsed+=task.dur; const endPct=(elapsed/total)*100;
+    const t0=performance.now();
+    function ab(now){const t=Math.min((now-t0)/task.dur,1);const p=startPct+(endPct-startPct)*t;document.getElementById('sBigFill').style.width=p+'%';document.getElementById('sPct').textContent=Math.round(p)+'%';if(t<1)requestAnimationFrame(ab);}
+    requestAnimationFrame(ab);
+    setTimeout(()=>run(i+1),task.dur);
+  }
+  run(0);
+}
+
+function toggleSignIn(){
+  const panel=document.getElementById('signInPanel');
+  const btn=document.getElementById('siToggleBtn');
+  const show=panel.style.display==='none';
+  panel.style.display=show?'block':'none';
+  btn.textContent=show?'← Back to install':'Already have an account?';
+}
+
+function signInExisting(){
+  const email=document.getElementById('siEmail').value.trim();
+  const pin=document.getElementById('siPin').value.trim();
+  const err=document.getElementById('siErr');
+  err.textContent='';
+  if(!email||!pin){err.textContent='Enter your email and PIN.';return;}
+  const accounts=JSON.parse(localStorage.getItem('awos_accounts')||'[]');
+  const acct=accounts.find(a=>a.email===email&&a.pin===pin);
+  if(!acct){err.textContent='Email or PIN incorrect. Try again.';return;}
+  // Found — load account
+  window._osUser=acct.user;
+  window._osEmail=acct.email;
+  window._osDevice=acct.device;
+  window._osPin=acct.pin;
+  sLaunchOS();
+}
+
+function sLaunchOS(){
+  prefetchSound(); // fetch MP3 now during user gesture
+  // Transfer data
+  CORRECT_PIN = window._osPin || '1234';
+  userName    = window._osUser || 'aquauser';
+  deviceName  = window._osDevice || 'AquaPC-1';
+  // Update OS UI
+  document.getElementById('smUsername').textContent = userName;
+  document.getElementById('smAvatar').textContent = userName[0].toUpperCase();
+  document.getElementById('lockUsername').textContent = userName;
+  document.getElementById('termPrompt').textContent = userName+'@'+deviceName+':~$';
+  // Hide setup, show boot
+  const sa=document.getElementById('setupApp');
+  sa.style.transition='opacity .8s ease';
+  sa.style.opacity='0';
+  setTimeout(()=>{
+    sa.style.display='none';
+    document.getElementById('boot').style.display='flex';
+    document.getElementById('boot').classList.remove('hidden');
+    setTimeout(()=>{
+      document.getElementById('boot').classList.add('hidden');
+      document.getElementById('boot').style.display='none';
+      document.getElementById('lock').classList.remove('hidden');
+      // ✅ AudioContext already unlocked by the Launch button click above
+      playStartupSound();
+    },4200);
+  },800);
+}
+
+/* ══════════════════════════════════════════
+   OS JS
+══════════════════════════════════════════ */
+let CORRECT_PIN = '1234';
+let userName    = 'aquauser';
+let deviceName  = 'AquaPC-1';
+let currentPin  = '';
+let winZBase    = 20;
+const winMaxState = {};
+const winOrigState = {};
+let startOpen   = false;
+let allHidden   = false;
+let systemOff   = false;
+let lockSoundPlayed = false;
+
+// Unlock audio context on user gesture, play startup chime automatically after
+// ── STARTUP SOUND ──────────────────────────────────────────
+// The real Windows 10 fanmade startup sound (archive.org)
+// Fetched as blob during the Launch button click (user gesture)
+// so it can play automatically when the lock screen appears.
+let _soundBlobUrl = null;
+
+function prefetchSound(){
+  // Called during sLaunchOS() which is a button onclick = user gesture
+  const url = 'https://archive.org/download/Windows10StartupSoundTune/Windows%2010%20Startup%20Sound_Tune.mp3';
+  fetch(url)
+    .then(r => r.blob())
+    .then(b => { _soundBlobUrl = URL.createObjectURL(b); })
+    .catch(() => { _soundBlobUrl = null; });
+}
+
+function playStartupSound(){
+  if(_soundBlobUrl){
+    const a = new Audio(_soundBlobUrl);
+    a.volume = 0.8;
+    a.play().catch(()=>{});
+  }
+}
+
+// CLOCK
+function updateClock(){
+  const now=new Date();
+  const t=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const d=now.toLocaleDateString();
+  const dLong=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('tbTime').textContent=t;
+  document.getElementById('tbDate').textContent=d;
+  document.getElementById('lockTime').textContent=t;
+  document.getElementById('lockDate').textContent=dLong;
+  document.getElementById('ntTime').textContent=t;
+  document.getElementById('ntDate').textContent=dLong;
+}
+setInterval(updateClock,1000); updateClock();
+
+// LOCK SCREEN
+function showPad(){
+  const u=document.getElementById('lockUnlock');
+  const h=document.getElementById('lockHint');
+  if(u.style.display==='flex')return;
+  u.style.display='flex'; h.style.display='none';
+  setTimeout(()=>{const i=document.getElementById('lockPinInput');if(i)i.focus();},100);
+}
+
+function lockPinType(e){
+  const inp=document.getElementById('lockPinInput');
+  const val=inp.value.replace(/[^0-9]/g,'').slice(0,4);
+  inp.value=val;
+  for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('filled',i<val.length);
+  if(val.length===4||(e&&e.key==='Enter'&&val.length>0)){
+    if(val===CORRECT_PIN){
+      document.getElementById('lock').classList.add('hidden');
+      const desk=document.getElementById('desktop');
+      desk.style.display='block'; desk.style.opacity='0'; desk.style.transition='opacity 1s ease';
+      setTimeout(()=>{desk.style.opacity='1';document.getElementById('taskbar').classList.add('visible');},100);
+      setTimeout(()=>notify('◈ AeroWaterOS',`Welcome back, ${userName}! Signed in on ${deviceName}.`),2000);
+    } else if(val.length===4){
+      const u=document.getElementById('lockUnlock');
+      u.style.animation='shake .4s ease';
+      setTimeout(()=>{u.style.animation='';inp.value='';updatePinDots();},400);
+    }
+  }
+}
+
+function updatePinDots(){for(let i=0;i<4;i++)document.getElementById('pd'+i).classList.remove('filled');}
+function toggleLockPin(){const i=document.getElementById('lockPinInput');i.type=i.type==='password'?'text':'password';}
+
+function lockScreen(){
+  document.getElementById('desktop').style.display='none';
+  document.getElementById('taskbar').classList.remove('visible');
+  document.getElementById('lock').classList.remove('hidden');
+  document.getElementById('lockUnlock').style.display='none';
+  document.getElementById('lockHint').style.display='block';
+  const inp=document.getElementById('lockPinInput');if(inp)inp.value='';
+  currentPin=''; updatePinDots(); lockSoundPlayed=false;
+  startOpen=false; document.getElementById('startMenu').classList.remove('visible');
+  if(document.getElementById('ctxMenu'))document.getElementById('ctxMenu').style.display='none';
+}
+
+// WINDOWS
+function openWindow(id){
+  const win=document.getElementById(id);
+  win.style.display='flex'; focusWin(id);
+  if(id==='win-files')showFiles('home',document.querySelector('#win-files .sidebar-item'));
+  if(id==='win-settings')showSettings('system',document.querySelector('#win-settings .sidebar-item'));
+  if(id==='win-terminal')document.getElementById('termInput').focus();
+  if(id==='win-player')playerLoad(playerIdx);
+}
+function closeWin(id){document.getElementById(id).style.display='none';}
+function minimizeWin(id){document.getElementById(id).style.display='none';}
+function focusWin(id){document.querySelectorAll('.win').forEach(w=>w.classList.remove('focused'));document.getElementById(id).classList.add('focused');winZBase++;document.getElementById(id).style.zIndex=winZBase;}
+function toggleMax(id){
+  const win=document.getElementById(id);
+  if(!winMaxState[id]){winOrigState[id]={top:win.style.top,left:win.style.left,width:win.style.width,height:win.style.height};win.style.cssText+=';top:0!important;left:0!important;width:100%!important;height:calc(100vh - 72px)!important';winMaxState[id]=true;}
+  else{const s=winOrigState[id];win.style.top=s.top||'80px';win.style.left=s.left||'120px';win.style.width=s.width||'';win.style.height=s.height||'';winMaxState[id]=false;}
+}
+function showDesktop(){allHidden=!allHidden;document.querySelectorAll('.win').forEach(w=>{if(allHidden){if(w.style.display==='flex')w._was=true;w.style.display='none';}else{if(w._was)w.style.display='flex';w._was=false;}});}
+
+// DRAG
+function startDrag(e,id){
+  const win=document.getElementById(id);
+  if(winMaxState[id])return;
+  focusWin(id);
+  const sx=e.clientX-win.offsetLeft,sy=e.clientY-win.offsetTop;
+  document.body.classList.add('dragging');
+  const mv=ev=>{win.style.left=(ev.clientX-sx)+'px';win.style.top=(ev.clientY-sy)+'px';};
+  const up=()=>{document.body.classList.remove('dragging');document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);};
+  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+}
+
+// START MENU
+function toggleStart(){startOpen=!startOpen;document.getElementById('startMenu').classList.toggle('visible',startOpen);}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#startMenu')&&!e.target.closest('.tb-start')){startOpen=false;document.getElementById('startMenu').classList.remove('visible');}
+  if(!e.target.closest('#ctxMenu'))document.getElementById('ctxMenu').style.display='none';
+});
+
+// BROWSER
+function browserNav(e){if(e.key==='Enter')loadUrl(e.target.value);}
+function browserNavFromNt(e){if(e.key==='Enter')loadUrl(e.target.value);}
+let _currentUrl = '';
+function loadUrl(val){
+  let url=val.trim();
+  if(!url)return;
+  if(!url.startsWith('http'))url='https://duckduckgo.com/?q='+encodeURIComponent(url);
+  _currentUrl=url;
+  document.getElementById('browserUrl').value=url;
+  const f=document.getElementById('browser-frame');
+  const nt=document.getElementById('browser-newtab');
+  const bl=document.getElementById('browser-blocked');
+  // Try iframe first
+  f.style.display='block';
+  nt.style.display='none';
+  bl.style.display='none';
+  f.src=url;
+  // After 3s, if iframe is blank/blocked, show fallback
+  f.onerror = ()=>showBlocked(url);
+  setTimeout(()=>{
+    try{
+      if(!f.contentDocument||f.contentDocument.body===null||f.contentDocument.body.innerHTML===''){
+        showBlocked(url);
+      }
+    }catch(e){ showBlocked(url); }
+  },3000);
+}
+function showBlocked(url){
+  const f=document.getElementById('browser-frame');
+  const bl=document.getElementById('browser-blocked');
+  f.style.display='none';
+  bl.style.display='flex';
+  const host=url.replace(/https?:\/\//,'').split('/')[0];
+  document.getElementById('blockedTitle').textContent=host;
+  document.getElementById('blockedMsg').textContent=`${host} doesn't allow embedding. Click below to open it in a new tab.`;
+}
+function openExternal(){
+  if(_currentUrl)window.open(_currentUrl,'_blank');
+}
+function browserBack(){try{document.getElementById('browser-frame').contentWindow.history.back();}catch(e){}}
+function browserFwd(){try{document.getElementById('browser-frame').contentWindow.history.forward();}catch(e){}}
+function browserRefresh(){
+  const f=document.getElementById('browser-frame');
+  if(_currentUrl){f.src='about:blank';setTimeout(()=>loadUrl(_currentUrl),100);}
+}
+function browserHome(){
+  document.getElementById('browser-frame').style.display='none';
+  document.getElementById('browser-blocked').style.display='none';
+  document.getElementById('browser-newtab').style.display='flex';
+  document.getElementById('browserUrl').value='';
+}
+
+// FILES
+const filesData={
+  home:[{icon:'📄',name:'README.txt'},{icon:'🖼️',name:'wallpaper.png'},{icon:'📁',name:'Documents'},{icon:'📁',name:'Downloads'},{icon:'🎵',name:'song.mp3'},{icon:'📹',name:'video.mp4'}],
+  desktop:[{icon:'🌊',name:'Edge.lnk'},{icon:'📁',name:'Files.lnk'},{icon:'⚙️',name:'Settings.lnk'},{icon:'⌂',name:'Terminal.lnk'}],
+  docs:[{icon:'📄',name:'report.docx'},{icon:'📊',name:'budget.xlsx'},{icon:'📋',name:'notes.txt'}],
+  pics:[{icon:'🖼️',name:'photo1.jpg'},{icon:'🖼️',name:'photo2.png'},{icon:'🎨',name:'wallpaper.png'}],
+  music:[{icon:'🎵',name:'track01.mp3'},{icon:'🎵',name:'track02.mp3'},{icon:'🎵',name:'playlist.m3u'}],
+  videos:[{icon:'🎬',name:'movie.mp4'},{icon:'📹',name:'clip.avi'}],
+  c:[{icon:'📁',name:'AeroWaterOS'},{icon:'📁',name:'Program Files'},{icon:'📁',name:'Users'},{icon:'📁',name:'Windows'}],
+  d:[{icon:'☁️',name:'AquaCloud'},{icon:'📁',name:'Backups'}]
+};
+
+function showFiles(key,el){
+  const data=filesData[key]||[];
+  const titles={home:'Home',desktop:'Desktop',docs:'Documents',pics:'Pictures',music:'Music',videos:'Videos',c:'AquaDrive (C:)',d:'Cloud (D:)'};
+  document.getElementById('filesTitle').textContent='Files — '+(titles[key]||key);
+  document.getElementById('filesGrid').innerHTML=data.map(f=>`<div class="file-item" ondblclick="fileOpen('${f.name}','${f.icon}')"><div class="file-icon">${f.icon}</div><div class="file-name">${f.name}</div></div>`).join('');
+  document.querySelectorAll('#win-files .sidebar-item').forEach(s=>s.classList.remove('active'));
+  if(el)el.classList.add('active');
+}
+function fileOpen(name,icon){const ext=name.split('.').pop().toLowerCase();if(['txt','docx','xlsx'].includes(ext)){openWindow('win-notepad');document.getElementById('notepadTitle').textContent=name+' — Notepad';document.getElementById('notepadArea').value='[Opening '+name+']\n\nThis file is stored in AquaDrive.\nDouble-click to edit.';}else if(['mp3','m3u'].includes(ext)){openWindow('win-player');}else{notify(icon+' '+name,'Opening '+name+'...');}}
+
+// SETTINGS STATE
+const settingsState={darkMode:true,notifications:true,sounds:true,wifi:true,aquacloud:true,brightness:100,aquashield:true,location:false};
+function settingToggle(key,btn){
+  settingsState[key]=!settingsState[key]; btn.classList.toggle('on',settingsState[key]);
+  const msgs={darkMode:['Dark mode enabled','Light mode enabled'],notifications:['Notifications on','Notifications off'],sounds:['Sounds on','Sounds muted'],wifi:['Wi-Fi connected','Wi-Fi disconnected'],aquacloud:['Cloud sync on','Cloud sync off'],aquashield:['AquaShield active','Warning: Protection off'],location:['Location on','Location off']};
+  if(msgs[key])notify('⚙️ Settings',settingsState[key]?msgs[key][0]:msgs[key][1]);
+  if(key==='darkMode')document.body.style.filter=settingsState.darkMode?'':'invert(0.85) hue-rotate(180deg)';
+  if(key==='wifi'&&document.getElementById('settingsContent').innerHTML)showSettings('network',null);
+}
+function settingBrightness(val){settingsState.brightness=val;document.getElementById('wallpaper').style.opacity=(val/100).toFixed(2);const v=document.getElementById('brightnessVal');if(v)v.textContent=val+'%';}
+const settingsPages={
+  system:()=>`<div class="settings-section-title">System</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">🌙</div><div class="settings-row-text"><div class="settings-row-label">Dark mode</div><div class="settings-row-sub">Toggle dark/light appearance</div></div><button class="toggle ${settingsState.darkMode?'on':''}" onclick="settingToggle('darkMode',this)"></button></div><div class="settings-row"><div class="settings-row-icon">🔔</div><div class="settings-row-text"><div class="settings-row-label">Notifications</div><div class="settings-row-sub">Show alerts and system messages</div></div><button class="toggle ${settingsState.notifications?'on':''}" onclick="settingToggle('notifications',this)"></button></div><div class="settings-row"><div class="settings-row-icon">🔊</div><div class="settings-row-text"><div class="settings-row-label">System sounds</div><div class="settings-row-sub">Startup, alerts and UI sounds</div></div><button class="toggle ${settingsState.sounds?'on':''}" onclick="settingToggle('sounds',this)"></button></div></div>`,
+  network:()=>`<div class="settings-section-title">Network & Internet</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">📶</div><div class="settings-row-text"><div class="settings-row-label">Wi-Fi</div><div class="settings-row-sub">${settingsState.wifi?'AquaSpace_5G — Connected':'Disconnected'}</div></div><button class="toggle ${settingsState.wifi?'on':''}" onclick="settingToggle('wifi',this)"></button></div><div class="settings-row"><div class="settings-row-icon">☁️</div><div class="settings-row-text"><div class="settings-row-label">AquaCloud sync</div><div class="settings-row-sub">Files synced to cloud</div></div><button class="toggle ${settingsState.aquacloud?'on':''}" onclick="settingToggle('aquacloud',this)"></button></div><div class="settings-row"><div class="settings-row-icon">🌐</div><div class="settings-row-text"><div class="settings-row-label">IP Address</div></div><span class="settings-row-value">${settingsState.wifi?'192.168.1.42':'Not assigned'}</span></div></div>`,
+  display:()=>`<div class="settings-section-title">Display</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">🖥️</div><div class="settings-row-text"><div class="settings-row-label">Resolution</div><div class="settings-row-sub">Recommended</div></div><span class="settings-row-value">1920×1080</span></div><div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;"><div style="display:flex;align-items:center;gap:10px;width:100%;"><div class="settings-row-icon">🔆</div><div class="settings-row-text"><div class="settings-row-label">Brightness</div><div class="settings-row-sub">Adjust wallpaper brightness</div></div><span class="settings-row-value" id="brightnessVal">${settingsState.brightness}%</span></div><input type="range" min="10" max="100" value="${settingsState.brightness}" style="width:100%;accent-color:var(--accent);" oninput="settingBrightness(this.value)"></div></div>`,
+  privacy:()=>`<div class="settings-section-title">Privacy & Security</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">🔒</div><div class="settings-row-text"><div class="settings-row-label">AquaShield</div><div class="settings-row-sub">Real-time threat protection — ${settingsState.aquashield?'Active':'Disabled'}</div></div><button class="toggle ${settingsState.aquashield?'on':''}" onclick="settingToggle('aquashield',this)"></button></div><div class="settings-row"><div class="settings-row-icon">📍</div><div class="settings-row-text"><div class="settings-row-label">Location services</div><div class="settings-row-sub">Allow apps to use your location</div></div><button class="toggle ${settingsState.location?'on':''}" onclick="settingToggle('location',this)"></button></div><div class="settings-row"><div class="settings-row-icon">🛡️</div><div class="settings-row-text"><div class="settings-row-label">Change PIN</div><div class="settings-row-sub">Update your lock screen PIN</div></div><button onclick="changePin()" style="background:rgba(0,200,255,0.15);border:1px solid var(--glass-border);border-radius:8px;padding:5px 14px;color:var(--accent);font-family:var(--font);font-size:12px;cursor:pointer;">Change</button></div><div class="settings-row"><div class="settings-row-icon">🚪</div><div class="settings-row-text"><div class="settings-row-label">Log Out</div><div class="settings-row-sub">Sign out and return to the installer</div></div><button onclick="logOut()" style="background:rgba(255,60,60,0.12);border:1px solid rgba(255,60,60,0.25);border-radius:8px;padding:5px 14px;color:#ff6060;font-family:var(--font);font-size:12px;cursor:pointer;">Log Out</button></div></div>`,
+  update:()=>`<div class="settings-section-title">Updates</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">✅</div><div class="settings-row-text"><div class="settings-row-label">AeroWaterOS is up to date</div><div class="settings-row-sub">Version 2.2.0 — Last checked today</div></div><span class="settings-row-value">v2.2.0</span></div><div class="settings-row"><div class="settings-row-icon">🔄</div><div class="settings-row-text"><div class="settings-row-label">Check for updates</div></div><button onclick="checkUpdates()" style="background:rgba(0,200,255,0.15);border:1px solid var(--glass-border);border-radius:8px;padding:5px 14px;color:var(--accent);font-family:var(--font);font-size:12px;cursor:pointer;">Check now</button></div></div>`,
+  about:()=>`<div class="settings-section-title">About AeroWaterOS</div><div class="settings-card"><div class="settings-row"><div class="settings-row-icon">◈</div><div class="settings-row-text"><div class="settings-row-label">Operating System</div></div><span class="settings-row-value">AeroWaterOS 2.2.0</span></div><div class="settings-row"><div class="settings-row-icon">🏢</div><div class="settings-row-text"><div class="settings-row-label">Developer</div></div><span class="settings-row-value">AquaSpace Corp.</span></div><div class="settings-row"><div class="settings-row-icon">💻</div><div class="settings-row-text"><div class="settings-row-label">Device</div></div><span class="settings-row-value">${deviceName}</span></div><div class="settings-row"><div class="settings-row-icon">👤</div><div class="settings-row-text"><div class="settings-row-label">User</div></div><span class="settings-row-value">${userName}</span></div><div class="settings-row"><div class="settings-row-icon">🔧</div><div class="settings-row-text"><div class="settings-row-label">Build</div></div><span class="settings-row-value">AQS-22000-RELEASE</span></div></div>`
+};
+function showSettings(key,el){
+  const p=settingsPages[key];
+  if(p)document.getElementById('settingsContent').innerHTML=p();
+  document.querySelectorAll('#win-settings .sidebar-item').forEach(s=>s.classList.remove('active'));
+  if(el)el.classList.add('active');
+  else document.querySelector(`#win-settings .sidebar-item[onclick*="${key}"]`)?.classList.add('active');
+}
+function changePin(){
+  // Create inline modal (prompt() blocked in some browsers/iframes)
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)';
+  overlay.innerHTML=`
+    <div style="background:rgba(8,20,50,0.97);border:1px solid var(--glass-border);border-radius:20px;padding:32px;width:320px;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+      <div style="font-family:var(--font-display);font-size:18px;font-weight:600;margin-bottom:8px;">Change PIN</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Enter a new 4-digit PIN for your lock screen.</div>
+      <input id="newPinInput" type="password" maxlength="4" placeholder="New PIN" autocomplete="off"
+        style="width:100%;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:10px;padding:12px 16px;color:var(--text);font-family:var(--font);font-size:20px;letter-spacing:8px;text-align:center;outline:none;margin-bottom:10px;"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <input id="newPinInput2" type="password" maxlength="4" placeholder="Confirm PIN" autocomplete="off"
+        style="width:100%;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:10px;padding:12px 16px;color:var(--text);font-family:var(--font);font-size:20px;letter-spacing:8px;text-align:center;outline:none;margin-bottom:20px;"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <div id="newPinErr" style="font-size:12px;color:#ff6060;margin-bottom:12px;min-height:16px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:12px;border-radius:10px;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--text-dim);cursor:pointer;font-family:var(--font);font-size:13px;">Cancel</button>
+        <button onclick="confirmPinChange()" style="flex:1;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:white;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;">Confirm</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('newPinInput').focus(),100);
+}
+
+function confirmPinChange(){
+  const p1=document.getElementById('newPinInput').value;
+  const p2=document.getElementById('newPinInput2').value;
+  const err=document.getElementById('newPinErr');
+  if(!p1||p1.length<4){err.textContent='PIN must be exactly 4 digits.';return;}
+  if(p1!==p2){err.textContent='PINs do not match.';return;}
+  CORRECT_PIN=p1;
+  document.querySelector('div[style*="fixed"][style*="9999"]').remove();
+  notify('🛡️ Security','PIN changed successfully');
+}
+function checkUpdates(){notify('🔄 Updates','Checking AquaSpace servers...');setTimeout(()=>notify('✅ Updates','AeroWaterOS is up to date — v2.2.0'),2500);}
+
+function logOut(){
+  // Confirm first
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)';
+  overlay.innerHTML=`
+    <div style="background:rgba(8,20,50,0.97);border:1px solid var(--glass-border);border-radius:20px;padding:32px;width:300px;box-shadow:0 24px 60px rgba(0,0,0,0.6);text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">🚪</div>
+      <div style="font-family:var(--font-display);font-size:18px;font-weight:600;margin-bottom:8px;">Log Out</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:24px;line-height:1.6;">Are you sure you want to sign out? You will be returned to the setup screen.</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:12px;border-radius:10px;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--text-dim);cursor:pointer;font-family:var(--font);font-size:13px;">Cancel</button>
+        <button onclick="confirmLogOut()" style="flex:1;padding:12px;border-radius:10px;background:rgba(255,60,60,0.2);border:1px solid rgba(255,60,60,0.3);color:#ff6060;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;">Log Out</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function confirmLogOut(){
+  // Close overlay
+  const ov=document.querySelector('div[style*="9999"]');
+  if(ov)ov.remove();
+  // Hide desktop and OS completely
+  const po=document.getElementById('powerOverlay');
+  po.classList.add('fade');
+  setTimeout(()=>{
+    document.getElementById('desktop').style.display='none';
+    document.getElementById('taskbar').classList.remove('visible');
+    document.getElementById('lock').classList.add('hidden');
+    document.getElementById('boot').style.display='none';
+    document.getElementById('shutdownScreen').style.display='none';
+    po.classList.remove('fade');
+    // Reset OS state
+    startOpen=false;
+    document.getElementById('startMenu').classList.remove('visible');
+    // Show setup again, reset to welcome page
+    const sa=document.getElementById('setupApp');
+    sa.style.display='flex';
+    sa.style.opacity='0';
+    sa.style.transition='opacity .6s ease';
+    // Reset setup wizard to page 0
+    document.querySelectorAll('.s-page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('sp0').classList.add('active');
+    for(let i=0;i<5;i++){
+      const si=document.getElementById('ssi'+i);
+      si.classList.remove('active','done');
+      si.querySelector('.s-dot').textContent=i+1;
+    }
+    document.getElementById('sProgressFill').style.width='0%';
+    document.getElementById('signInPanel').style.display='none';
+    document.getElementById('siToggleBtn').textContent='Already have an account?';
+    setTimeout(()=>{sa.style.opacity='1';},50);
+  },800);
+}
+
+// TERMINAL
+const termHistory=[];let histIdx=-1;
+const termCommands={
+  help:()=>['┌───────────────────────────────────┐','│  AquaSpace Terminal — Commands    │','└───────────────────────────────────┘','  ver, uptime, whoami, hostname, sysinfo','  neofetch, cls, clear, color','  ls, dir, pwd, mkdir, touch, cat, tree','  ping, ipconfig, netstat, tracert','  ps, tasklist, kill','  date, time, echo, calc, weather, matrix','  aqua, aquadrive, banner, coin','  reboot, lock, shutdown'],
+  ver:()=>['AeroWaterOS 2.2.0 — AquaSpace Corporation — AQS-22000'],
+  uptime:()=>{const m=Math.floor(Math.random()*200+10);return[`Uptime: ${m} min (${Math.floor(m/60)}h ${m%60}m) | Load: ${(Math.random()*.6+.1).toFixed(2)}`];},
+  whoami:()=>[userName+' (Administrator)'],
+  hostname:()=>[deviceName],
+  sysinfo:()=>[`OS: AeroWaterOS 2.2.0`,`Device: ${deviceName}`,`User: ${userName}`,`CPU: AquaCore X9 @ 3.80GHz`,`RAM: 16 GB`,`Disk: 256 GB SSD`,`GPU: AquaVision RTX 4070`],
+  neofetch:()=>[`   ◈◈◈◈◈◈◈    ${userName}@${deviceName}`,'  ◈  ·····  ◈  ─────────────────────',' ◈  ◈◈◈◈◈  ◈   OS:   AeroWaterOS 2.2.0',' ◈  ◈   ◈  ◈   CPU:  AquaCore X9 @ 3.80GHz',' ◈  ◈◈◈◈◈  ◈   RAM:  16 GB','  ◈  ·····  ◈  GPU:  AquaVision RTX 4070','   ◈◈◈◈◈◈◈    Shell: AquaShell 1.4'],
+  cls:()=>{document.getElementById('termLines').innerHTML='';return[];},
+  clear:()=>{document.getElementById('termLines').innerHTML='';return[];},
+  color:(a)=>{const c={green:'#7dffb4',cyan:'#00d4ff',white:'#e8f4ff',yellow:'#ffd060',red:'#ff6060',blue:'#60aaff'};const col=c[a?.toLowerCase()];if(!col)return['Usage: color [green|cyan|white|yellow|red|blue]'];document.getElementById('terminalBody').style.color=col;return['Color set to '+a];},
+  ls:(a)=>{const d={'~':['Desktop/','Documents/','Downloads/','Music/','Pictures/','Videos/'],Desktop:['Edge.lnk','Files.lnk'],Documents:['report.docx','notes.txt'],Downloads:['setup.exe']};return d[a]||d['~'];},
+  dir:(a)=>termCommands.ls(a),
+  pwd:()=>['/home/'+userName],
+  mkdir:(a)=>a?[`Directory '${a}' created.`]:['Usage: mkdir <name>'],
+  touch:(a)=>a?[`File '${a}' created.`]:['Usage: touch <filename>'],
+  cat:(a)=>{const f={'notes.txt':['AeroWaterOS Notes','─────────────────','- Update drivers','- Check sync'],'readme.txt':['Welcome to AeroWaterOS!','AquaSpace Corporation']};return f[a]||(a?['cat: '+a+': No such file']:['Usage: cat <filename>']);},
+  tree:()=>['/home/'+userName,'├── Desktop/','│   └── Edge.lnk','├── Documents/','│   └── notes.txt','└── Downloads/','    └── setup.exe'],
+  ping:(a)=>{const h=a||'aquaspace.corp';return[`Pinging ${h}:`,`Reply: bytes=32 time=${Math.floor(Math.random()*8+1)}ms TTL=64`,`Reply: bytes=32 time=${Math.floor(Math.random()*8+1)}ms TTL=64`,`Packets: Sent=2, Received=2, Lost=0 (0%)`];},
+  ipconfig:()=>['AquaSpace Adapter',`   IPv4: 192.168.1.${Math.floor(Math.random()*200+10)}`,'   Gateway: 192.168.1.1','   DNS: 8.8.8.8'],
+  netstat:()=>['Active Connections:','  TCP 127.0.0.1:443 ESTABLISHED','  TCP 0.0.0.0:8080 LISTENING'],
+  tracert:(a)=>{const h=a||'aquaspace.corp';return[`Tracing to ${h}:`,'  1  <1ms  192.168.1.1',`  2  12ms  ${h}`,'Trace complete.'];},
+  ps:()=>['PID  NAME            CPU%  MEM','001  AquaShell        0.1   12MB','002  AeroWaterEdge    1.4  210MB','003  AquaCloud         0.3   45MB'],
+  tasklist:(a)=>termCommands.ps(a),
+  kill:(a)=>a?[`Process '${a}' terminated.`]:['Usage: kill <pid|name>'],
+  date:()=>[new Date().toDateString()],
+  time:()=>[new Date().toLocaleTimeString()],
+  echo:(a)=>[a||''],
+  calc:(a)=>{if(!a)return['Usage: calc <expr>  e.g. calc 2+2'];try{const r=Function('"use strict";return('+a.replace(/[^0-9+\-*/().% ]/g,'')+')()');return[a+' = '+r];}catch{return['Invalid expression.']}},
+  weather:()=>[`☁ Weather: ${Math.floor(Math.random()*20+10)}°C — ${['Sunny','Cloudy','Clear'][Math.floor(Math.random()*3)]} — Humidity ${Math.floor(Math.random()*40+40)}%`],
+  matrix:()=>{document.getElementById('terminalBody').style.color='#00ff41';const c='01アウエカサ◈';const l=[];for(let i=0;i<6;i++){let s='';for(let j=0;j<48;j++)s+=c[Math.floor(Math.random()*c.length)];l.push(s);}setTimeout(()=>{document.getElementById('terminalBody').style.color='#7dffb4';},2000);return l;},
+  aqua:()=>['   ~~~ AquaSpace Corporation ~~~','        ◈  AeroWaterOS 2.2','   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~','   Trusted. Secure. Connected.'],
+  aquadrive:()=>['AquaDrive (C:)  ████████░░░░  256 GB  Used: 76 GB  Free: 180 GB','AquaCloud (D:)  ████░░░░░░░░  1 TB    Used: 120 GB Free: 880 GB'],
+  banner:(a)=>{const t=(a||'AQUA').toUpperCase().slice(0,6);return[`  ╔${'═'.repeat(t.length*2+4)}╗`,`  ║  ${t.split('').join(' ')}  ║`,`  ╚${'═'.repeat(t.length*2+4)}╝`];},
+  coin:()=>[Math.random()>.5?'🪙 HEADS':'🪙 TAILS'],
+  about:()=>['AeroWaterOS v2.2.0 — AquaSpace Corporation'],
+  shutdown:()=>{setTimeout(shutdownOS,500);return['Shutting down...'];},
+  reboot:()=>{setTimeout(restartOS,500);return['Rebooting...'];},
+  lock:()=>{setTimeout(lockScreen,500);return['Locking session...'];}
+};
+function termKey(e){
+  const inp=document.getElementById('termInput');
+  if(e.key==='Enter'){
+    const cmd=inp.value.trim(); inp.value='';
+    if(!cmd)return;
+    termHistory.unshift(cmd); histIdx=-1;
+    addTermLine(cmd,true);
+    const [name,...args]=cmd.split(' ');
+    const fn=termCommands[name.toLowerCase()];
+    if(fn){const out=fn(args.join(' '));if(out)out.forEach(l=>addTermLine(l,false));}
+    else addTermLine(`'${name}' is not recognized. Type 'help'.`,false,true);
+    document.getElementById('terminalBody').scrollTop=9999;
+  }else if(e.key==='ArrowUp'){histIdx=Math.min(histIdx+1,termHistory.length-1);inp.value=termHistory[histIdx]||'';}
+  else if(e.key==='ArrowDown'){histIdx=Math.max(histIdx-1,-1);inp.value=histIdx>=0?termHistory[histIdx]:'';}
+}
+function addTermLine(text,isCmd,isErr){
+  const lines=document.getElementById('termLines');
+  const d=document.createElement('div'); d.className='terminal-line';
+  if(isCmd)d.innerHTML=`<span class="terminal-prompt" style="color:var(--accent)">${userName}@${deviceName}:~$</span><span style="color:#c8e8ff"> ${esc(text)}</span>`;
+  else d.innerHTML=`<span class="terminal-output" style="${isErr?'color:#ff6060':''}">${esc(text)}</span>`;
+  lines.appendChild(d);
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// NOTEPAD
+function notepadNew(){if(document.getElementById('notepadArea').value&&!confirm('Discard changes?'))return;document.getElementById('notepadArea').value='';document.getElementById('notepadTitle').textContent='Untitled — Notepad';}
+function notepadSave(){const txt=document.getElementById('notepadArea').value;const b=new Blob([txt],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='note.txt';a.click();document.getElementById('notepadStatus').textContent='Saved ✓';setTimeout(()=>document.getElementById('notepadStatus').textContent='',2000);}
+function notepadClear(){document.getElementById('notepadArea').value='';}
+
+// AQUAPLAYER
+const playlist=[
+  {title:'AquaSpace Vibes',   artist:'AquaSpace Music', duration:212, color:'#0070ff,#00c8ff', icon:'🌊'},
+  {title:'Ocean Drive',        artist:'AeroWave',        duration:195, color:'#7c3aed,#c084fc', icon:'🎸'},
+  {title:'Deep Blue',          artist:'AquaSpace Music', duration:238, color:'#0e7490,#22d3ee', icon:'🎹'},
+  {title:'Crystal Clear',      artist:'WaterBeats',      duration:178, color:'#065f46,#34d399', icon:'💎'},
+  {title:'Neon Tide',          artist:'AeroWave',        duration:256, color:'#be123c,#fb7185', icon:'🎵'},
+  {title:'Midnight Aqua',      artist:'AquaSpace Music', duration:201, color:'#1e3a8a,#60a5fa', icon:'🌙'},
+  {title:'Floating',           artist:'WaterBeats',      duration:184, color:'#713f12,#fbbf24', icon:'☁️'},
+];
+let playerIdx=0, playerPlaying=false, playerSecs=0, playerInterval=null, playerVol=0.7;
+
+function playerRenderPlaylist(){
+  const el=document.getElementById('playerPlaylist');
+  if(!el)return;
+  el.innerHTML=playlist.map((t,i)=>`
+    <div onclick="playerJump(${i})" style="padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;
+      background:${i===playerIdx?'rgba(0,200,255,0.12)':'transparent'};
+      border:1px solid ${i===playerIdx?'rgba(0,200,255,0.2)':'transparent'};
+      transition:background .15s;">
+      <div style="font-size:12px;font-weight:${i===playerIdx?'500':'400'};color:${i===playerIdx?'var(--text)':'var(--text-dim)'};
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.icon} ${t.title}</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${fmtTime(t.duration)}</div>
+    </div>`).join('');
+}
+
+function playerLoad(idx){
+  const t=playlist[idx];
+  const el=document.getElementById('playerTitle');
+  const ea=document.getElementById('playerArtist');
+  const et=document.getElementById('playerTotal');
+  const art=document.getElementById('playerAlbumArt');
+  if(el)el.textContent=t.title;
+  if(ea)ea.textContent=t.artist;
+  if(et)et.textContent=fmtTime(t.duration);
+  if(art){art.style.background=`linear-gradient(135deg,${t.color})`;art.textContent=t.icon;}
+  const fill=document.getElementById('playerFill');
+  const cur=document.getElementById('playerCurrent');
+  if(fill)fill.style.width='0%';
+  if(cur)cur.textContent='0:00';
+  playerSecs=0;
+  playerRenderPlaylist();
+}
+
+function playerJump(idx){
+  clearInterval(playerInterval);
+  playerPlaying=false;
+  playerIdx=idx;
+  playerLoad(idx);
+  const btn=document.getElementById('playerPlayBtn');
+  if(btn)btn.textContent='▶';
+  const art=document.getElementById('playerAlbumArt');
+  if(art)art.style.transform='scale(1)';
+  // Auto-play on jump
+  setTimeout(()=>playerToggle(),100);
+}
+
+function playerToggle(){
+  playerPlaying=!playerPlaying;
+  const btn=document.getElementById('playerPlayBtn');
+  const art=document.getElementById('playerAlbumArt');
+  if(btn)btn.textContent=playerPlaying?'⏸':'▶';
+  if(art)art.style.transform=playerPlaying?'scale(1.04) rotate(-1deg)':'scale(1)';
+  if(playerPlaying){
+    playerInterval=setInterval(()=>{
+      playerSecs++;
+      const dur=playlist[playerIdx].duration;
+      const cur=document.getElementById('playerCurrent');
+      const fill=document.getElementById('playerFill');
+      if(cur)cur.textContent=fmtTime(playerSecs);
+      if(fill)fill.style.width=(playerSecs/dur*100)+'%';
+      if(playerSecs>=dur)playerNext();
+    },1000);
+  } else {
+    clearInterval(playerInterval);
+  }
+}
+
+function playerPrev(){
+  clearInterval(playerInterval); playerPlaying=false;
+  playerIdx=(playerIdx-1+playlist.length)%playlist.length;
+  playerLoad(playerIdx);
+  const btn=document.getElementById('playerPlayBtn');
+  if(btn)btn.textContent='▶';
+}
+
+function playerNext(){
+  clearInterval(playerInterval); playerPlaying=false;
+  playerIdx=(playerIdx+1)%playlist.length;
+  playerLoad(playerIdx);
+  const btn=document.getElementById('playerPlayBtn');
+  if(btn)btn.textContent='▶';
+  setTimeout(()=>playerToggle(),100);
+}
+
+function playerSeek(e){
+  const b=document.getElementById('playerBar');
+  if(!b)return;
+  const p=Math.max(0,Math.min(1,e.offsetX/b.offsetWidth));
+  playerSecs=Math.floor(p*playlist[playerIdx].duration);
+  const fill=document.getElementById('playerFill');
+  const cur=document.getElementById('playerCurrent');
+  if(fill)fill.style.width=(p*100)+'%';
+  if(cur)cur.textContent=fmtTime(playerSecs);
+}
+
+function playerVolumeChange(v){
+  playerVol=v/100;
+  const pct=document.getElementById('playerVolPct');
+  if(pct)pct.textContent=v+'%';
+}
+
+function fmtTime(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+playerLoad(0);
+
+// NOTIFICATIONS
+function notify(title,msg){
+  const c=document.getElementById('notifications');
+  const n=document.createElement('div'); n.className='notif';
+  n.innerHTML=`<div class="notif-icon">${title.split(' ')[0]}</div><div class="notif-body"><div class="notif-title">${title.substring(title.indexOf(' ')+1)}</div><div class="notif-msg">${msg}</div></div><button class="notif-close" onclick="dismissNotif(this)">×</button>`;
+  c.appendChild(n); setTimeout(()=>dismissNotif(n.querySelector('.notif-close')),5000);
+}
+function dismissNotif(btn){const n=btn.closest('.notif');n.classList.add('out');setTimeout(()=>n.remove(),300);}
+
+// SEARCH
+const searchIndex=[
+  {name:'AeroWater Edge',icon:'🌊',action:()=>openWindow('win-browser')},
+  {name:'Browser',icon:'🌊',action:()=>openWindow('win-browser')},
+  {name:'Files',icon:'📁',action:()=>openWindow('win-files')},
+  {name:'File Explorer',icon:'📁',action:()=>openWindow('win-files')},
+  {name:'Settings',icon:'⚙️',action:()=>openWindow('win-settings')},
+  {name:'Notepad',icon:'📝',action:()=>openWindow('win-notepad')},
+  {name:'AquaPlayer',icon:'🎵',action:()=>openWindow('win-player')},
+  {name:'Terminal',icon:'⌂',action:()=>openWindow('win-terminal')},
+  {name:'System',icon:'⚙️',action:()=>{openWindow('win-settings');showSettings('system',document.querySelector('#win-settings .sidebar-item'));}},
+  {name:'Network',icon:'🌐',action:()=>{openWindow('win-settings');showSettings('network',document.querySelectorAll('#win-settings .sidebar-item')[1]);}},
+  {name:'Display',icon:'🎨',action:()=>{openWindow('win-settings');showSettings('display',document.querySelectorAll('#win-settings .sidebar-item')[2]);}},
+  {name:'Privacy',icon:'🔒',action:()=>{openWindow('win-settings');showSettings('privacy',document.querySelectorAll('#win-settings .sidebar-item')[3]);}},
+  {name:'About',icon:'ℹ️',action:()=>{openWindow('win-settings');showSettings('about',document.querySelectorAll('#win-settings .sidebar-item')[5]);}},
+  {name:'Documents',icon:'📄',action:()=>{openWindow('win-files');showFiles('docs',null);}},
+  {name:'Pictures',icon:'🖼️',action:()=>{openWindow('win-files');showFiles('pics',null);}},
+  {name:'Music',icon:'🎵',action:()=>{openWindow('win-files');showFiles('music',null);}},
+  {name:'Lock screen',icon:'🔒',action:()=>lockScreen()},
+  {name:'Restart',icon:'↺',action:()=>restartOS()},
+  {name:'Shut down',icon:'↪',action:()=>shutdownOS()},
+];
+function tbSearchFocus(){tbSearchQuery(document.getElementById('tbSearchInput').value);}
+function tbSearchQuery(q){
+  const box=document.getElementById('tbSearchResults');
+  if(!q.trim()){box.style.display='none';return;}
+  const results=[...searchIndex,{name:userName+' — User account',icon:'👤',action:()=>{openWindow('win-settings');showSettings('about',document.querySelectorAll('#win-settings .sidebar-item')[5]);}}].filter(x=>x.name.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+  if(!results.length){box.innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--text-dim);">No results found</div>';box.style.display='block';return;}
+  box.innerHTML=results.map((r,i)=>`<div class="ctx-item" onclick="tbSearchSelect(${i})" style="gap:10px;"><span>${r.icon}</span><span style="font-size:13px;">${r.name}</span></div>`).join('');
+  box._results=results; box.style.display='block';
+}
+function tbSearchSelect(i){const box=document.getElementById('tbSearchResults');const r=box._results[i];if(r)r.action();document.getElementById('tbSearchInput').value='';box.style.display='none';}
+function tbSearchBlur(){document.getElementById('tbSearchResults').style.display='none';}
+function tbSearchKey(e){
+  if(e.key==='Escape')document.getElementById('tbSearchResults').style.display='none';
+  if(e.key==='Enter'){const box=document.getElementById('tbSearchResults');if(box._results&&box._results[0]){box._results[0].action();document.getElementById('tbSearchInput').value='';box.style.display='none';}}
+}
+
+// POWER
+function restartOS(){
+  startOpen=false; document.getElementById('startMenu').classList.remove('visible');
+  const ov=document.getElementById('powerOverlay'); ov.classList.add('fade');
+  setTimeout(()=>{
+    document.getElementById('desktop').style.display='none';
+    document.getElementById('taskbar').classList.remove('visible');
+    document.getElementById('lock').classList.add('hidden');
+    ov.classList.remove('fade');
+    document.getElementById('boot').style.display='flex';
+    document.getElementById('boot').classList.remove('hidden');
+    setTimeout(()=>{
+      document.getElementById('boot').classList.add('hidden');
+      document.getElementById('boot').style.display='none';
+      lockSoundPlayed=false;
+      document.getElementById('lock').classList.remove('hidden');
+      playStartupSound();
+    },4200);
+  },800);
+}
+function shutdownOS(){
+  startOpen=false; document.getElementById('startMenu').classList.remove('visible');
+  const ov=document.getElementById('powerOverlay'); ov.classList.add('fade');
+  setTimeout(()=>{
+    document.getElementById('desktop').style.display='none';
+    document.getElementById('taskbar').classList.remove('visible');
+    document.getElementById('lock').classList.add('hidden');
+    ov.classList.remove('fade');
+    document.getElementById('shutdownScreen').style.display='flex';
+    systemOff=true;
+  },1000);
+}
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&systemOff&&e.key!=='Control'){
+    systemOff=false;
+    document.getElementById('shutdownScreen').style.display='none';
+    document.getElementById('boot').style.display='flex';
+    document.getElementById('boot').classList.remove('hidden');
+    setTimeout(()=>{
+      document.getElementById('boot').classList.add('hidden');
+      document.getElementById('boot').style.display='none';
+      lockSoundPlayed=false;
+      document.getElementById('lock').classList.remove('hidden');
+      playStartupSound();
+    },4200);
+  }
+});
+
+// CONTEXT MENU
+document.addEventListener('contextmenu',e=>{
+  if(!document.getElementById('desktop')||document.getElementById('desktop').style.display==='none')return;
+  if(e.target.closest('.win')||e.target.closest('#taskbar')||e.target.closest('#startMenu'))return;
+  e.preventDefault();
+  const m=document.getElementById('ctxMenu');
+  m.style.display='block'; m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px';
+});
+function refreshDesktop(){document.getElementById('ctxMenu').style.display='none';notify('↻ Desktop','Desktop refreshed');}
+</script>
+
+<script>
+function isUSB(){
+    return location.href.includes("USB DISK (D:)");
+}
+
+function isMobile(){
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+if(!isUSB() && !isMobile()){
+    let pass = prompt("🔒 Enter password:");
+
+    if(pass !== "Aero2026"){
+        document.body.innerHTML = "<h1 style='color:white;background:black;height:100vh;display:flex;justify-content:center;align-items:center;'>❌ Access Denied</h1>";
+    }
+}
+</script>
+
+</script>   
+</body>
+</html>
